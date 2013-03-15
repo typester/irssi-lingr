@@ -11,6 +11,7 @@ use Irssi;
 our %IRSSI = ( name => 'lingr' );
 
 our $lingr;
+my %NICKMAP;
 
 sub cmd_base {
     my ($data, $server, $item) = @_;
@@ -61,6 +62,8 @@ sub cmd_start {
         my ($rooms) = @_;
         return unless $lingr;
 
+        %NICKMAP = ();
+
         for my $room (@$rooms) {
             my $win_name = 'lingr/' . $room->{id};
             my $win = Irssi::window_find_name($win_name);
@@ -68,6 +71,11 @@ sub cmd_start {
                 Irssi::print("Lingr: creating window: " . $win_name);
                 $win = Irssi::Windowitem::window_create(undef, 1);
                 $win->set_name($win_name);
+            }
+
+            for my $member (@{ $room->{roster}{members} }) {
+                Irssi::print("added " . $member->{username});
+                $NICKMAP{ $room->{id} }{ $member->{username} } = $member;
             }
         }
     });
@@ -81,10 +89,17 @@ sub cmd_start {
 
             if ($win) {
                 if ($msg->{type} eq 'user') {
+                    my $member = $NICKMAP{ $msg->{room} }{ $msg->{speaker_id} };
+                    my $is_owner;
+                    if ($member) {
+                        $is_owner = $member->{is_owner};
+                    }
+
                     $win->printformat(
                         MSGLEVEL_PUBLIC,
                         $msg->{speaker_id} eq $lingr->user ? 'ownmsg' : 'pubmsg',
-                        $msg->{nickname}, $msg->{text}, ' ');
+                        $msg->{nickname}, $msg->{text},
+                        $is_owner ? '@' : ' ');
                 }
                 else {
                     $win->printformat(MSGLEVEL_NOTICES, 'notice_public',
@@ -114,6 +129,21 @@ sub sig_send_text {
     }
 }
 
+sub sig_complete_word {
+    my ($strings, $win, $word, $linestart, $want_space) = @_;
+
+    unless ($win) {
+        $win = Irssi::active_win();
+    }
+
+    my ($room) = $win->{name} =~ m!^lingr/(.*)$!;
+    if ($room) {
+        push @$strings, map { '@' . $_ } grep /^$word/, keys %{ $NICKMAP{$room} };
+        $$want_space = 1;
+        Irssi::signal_stop();
+    }
+}
+
 Irssi::theme_register([
     'pubmsg'    => Irssi::current_theme()->get_format('fe-common/core', 'pubmsg'),
     'ownmsg' => Irssi::current_theme()->get_format('fe-common/core', 'own_msg'),
@@ -129,3 +159,4 @@ Irssi::settings_add_str('lingr', 'lingr_password', q[]);
 Irssi::settings_add_str('lingr', 'lingr_apikey', q[]);
 
 Irssi::signal_add_last('send text', \&sig_send_text);
+Irssi::signal_add_first('complete word', \&sig_complete_word);
