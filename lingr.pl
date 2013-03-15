@@ -66,7 +66,7 @@ sub cmd_start {
             my $win = Irssi::window_find_name($win_name);
             unless ($win) {
                 Irssi::print("Lingr: creating window: " . $win_name);
-                $win = Irssi::Windowitem::window_create($win_name, 1);
+                $win = Irssi::Windowitem::window_create(undef, 1);
                 $win->set_name($win_name);
             }
         }
@@ -78,8 +78,19 @@ sub cmd_start {
         if (my $msg = $event->{message}) {
             my $win_name = 'lingr/' . $msg->{room};
             my $win = Irssi::window_find_name($win_name);
-            $win->print(sprintf "%s: %s",
-                        encode_utf8($msg->{nickname}), encode_utf8($msg->{text}));
+
+            if ($win) {
+                if ($msg->{type} eq 'user') {
+                    $win->printformat(
+                        MSGLEVEL_PUBLIC,
+                        $msg->{speaker_id} eq $lingr->user ? 'ownmsg' : 'pubmsg',
+                        $msg->{nickname}, $msg->{text}, ' ');
+                }
+                else {
+                    $win->printformat(MSGLEVEL_NOTICES, 'notice_public',
+                                      $msg->{nickname}, $msg->{room}, $msg->{text});
+                }
+            }
         }
     });
 
@@ -102,6 +113,12 @@ sub sig_send_text {
         $lingr->say(decode_utf8($room), decode_utf8($line));
     }
 }
+
+Irssi::theme_register([
+    'pubmsg'    => Irssi::current_theme()->get_format('fe-common/core', 'pubmsg'),
+    'ownmsg' => Irssi::current_theme()->get_format('fe-common/core', 'own_msg'),
+    'notice_public' => Irssi::current_theme()->get_format('fe-common/irc', 'notice_public'),
+]);
 
 Irssi::command_bind('lingr', \&cmd_base);
 Irssi::command_bind('lingr start', \&cmd_start);
