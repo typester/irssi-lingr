@@ -98,12 +98,38 @@ sub cmd_start {
                     $win->printformat(
                         MSGLEVEL_PUBLIC,
                         $msg->{speaker_id} eq $lingr->user ? 'ownmsg' : 'pubmsg',
-                        $msg->{nickname}, $msg->{text},
+                        $msg->{speaker_id}, $msg->{text},
                         $is_owner ? '@' : ' ');
                 }
                 else {
                     $win->printformat(MSGLEVEL_NOTICES, 'notice_public',
-                                      $msg->{nickname}, $msg->{room}, $msg->{text});
+                                      $msg->{speaker_id}, $msg->{room}, $msg->{text});
+                }
+            }
+        }
+        elsif (my $presence = $event->{presence}) {
+            my $win_name = 'lingr/' . $presence->{room};
+            my $win = Irssi::window_find_name($win_name);
+
+            if ($win) {
+                if ($presence->{status} eq 'online') {
+                    $NICKMAP{ $presence->{room} }{ $presence->{username} } = {
+                        speaker_id => $presence->{username},
+                        %$presence,
+                    };
+
+                    $win->printformat(
+                        MSGLEVEL_JOINS, 'join',
+                        $presence->{nickname}, $presence->{username}, $presence->{room},
+                    );
+                }
+                elsif ($presence->{status} eq 'offline') {
+                    delete $NICKMAP{ $presence->{room} }{ $presence->{username} };
+
+                    $win->printformat(
+                        MSGLEVEL_PARTS, 'part',
+                        $presence->{nickname}, $presence->{username}, $presence->{room}, '',
+                    );
                 }
             }
         }
@@ -137,22 +163,28 @@ sub sig_complete_word {
     }
 
     my ($room) = $win->{name} =~ m!^lingr/(.*)$!;
-    if ($room) {
-        push @$strings, map { '@' . $_ } grep /^$word/, keys %{ $NICKMAP{$room} };
+    if ($room and $word !~ m!^/!) {
+        push @$strings, map { '@' . $_ } sort grep /^$word/i, keys %{ $NICKMAP{$room} };
         $$want_space = 1;
         Irssi::signal_stop();
     }
 }
 
-Irssi::theme_register([
-    'pubmsg'    => Irssi::current_theme()->get_format('fe-common/core', 'pubmsg'),
-    'ownmsg' => Irssi::current_theme()->get_format('fe-common/core', 'own_msg'),
-    'notice_public' => Irssi::current_theme()->get_format('fe-common/irc', 'notice_public'),
-]);
+sub cmd_update_theme {
+    Irssi::theme_register([
+        'pubmsg'        => Irssi::current_theme()->get_format('fe-common/core', 'pubmsg'),
+        'ownmsg'        => Irssi::current_theme()->get_format('fe-common/core', 'own_msg'),
+        'notice_public' => Irssi::current_theme()->get_format('fe-common/irc', 'notice_public'),
+        'join'          => Irssi::current_theme()->get_format('fe-common/core', 'join'),
+        'part'          => Irssi::current_theme()->get_format('fe-common/core', 'part'),
+    ]);
+}
+cmd_update_theme();
 
 Irssi::command_bind('lingr', \&cmd_base);
 Irssi::command_bind('lingr start', \&cmd_start);
 Irssi::command_bind('lingr stop', \&cmd_stop);
+Irssi::command_bind('lingr update_theme', \&cmd_update_theme);
 
 Irssi::settings_add_str('lingr', 'lingr_user', q[]);
 Irssi::settings_add_str('lingr', 'lingr_password', q[]);
