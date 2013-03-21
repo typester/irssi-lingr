@@ -171,6 +171,15 @@ sub sig_complete_word {
     }
 }
 
+sub cmd_update_room_info {
+    unless ($lingr) {
+        Irssi::print("Lingr: ERROR: lingr session does not started");
+        return;
+    }
+
+    $lingr->update_room_info;
+}
+
 sub cmd_update_theme {
     Irssi::theme_register([
         'pubmsg'        => Irssi::current_theme()->get_format('fe-common/core', 'pubmsg'),
@@ -186,6 +195,7 @@ Irssi::command_bind('lingr', \&cmd_base);
 Irssi::command_bind('lingr start', \&cmd_start);
 Irssi::command_bind('lingr stop', \&cmd_stop);
 Irssi::command_bind('lingr update_theme', \&cmd_update_theme);
+Irssi::command_bind('lingr update_room_info', \&cmd_update_room_info);
 
 Irssi::settings_add_str('lingr', 'lingr_user', q[]);
 Irssi::settings_add_str('lingr', 'lingr_password', q[]);
