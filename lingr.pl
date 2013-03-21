@@ -88,6 +88,9 @@ sub cmd_start {
             my $win_name = 'lingr/' . $msg->{room};
             my $win = Irssi::window_find_name($win_name);
 
+            # strip trailing new lines
+            (my $text = encode_utf8($msg->{text})) =~ s/(\r?\n)+$//s;
+
             if ($win) {
                 if ($msg->{type} eq 'user') {
                     my $member = $NICKMAP{ $msg->{room} }{ $msg->{speaker_id} };
@@ -99,12 +102,12 @@ sub cmd_start {
                     $win->printformat(
                         MSGLEVEL_PUBLIC,
                         $msg->{speaker_id} eq $lingr->user ? 'ownmsg' : 'pubmsg',
-                        $msg->{speaker_id}, $msg->{text},
+                        $msg->{speaker_id}, $text,
                         $is_owner ? '@' : ' ');
                 }
                 else {
                     $win->printformat(MSGLEVEL_NOTICES, 'notice_public',
-                                      $msg->{speaker_id}, $msg->{room}, $msg->{text});
+                                      $msg->{speaker_id}, $msg->{room}, $text);
                 }
             }
         }
