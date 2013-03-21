@@ -74,10 +74,11 @@ sub cmd_start {
             }
 
             for my $member (@{ $room->{roster}{members} }) {
-                Irssi::print("added " . $member->{username});
                 $NICKMAP{ $room->{id} }{ $member->{username} } = $member;
             }
         }
+
+        Irssi::print("Lingr: session_started");
     });
 
     $lingr->on_event(sub {
